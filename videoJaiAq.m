@@ -36,7 +36,7 @@ classdef videoJaiAq < handle    % attributed a handle superclass
         numCamerasFound
         deviceNumber
         bitDepth
-        interface = 'gentl';
+        interface;
         info
         camera
         liveStream
@@ -50,7 +50,11 @@ classdef videoJaiAq < handle    % attributed a handle superclass
     end
     methods
         % constructor class
-        function obj = videoJaiAq(devicenumber,bitdepth) 
+        function obj = videoJaiAq(interface,devicenumber,settings) 
+            
+            validInterfaces = ["gentl","winvideo"];
+            obj.interface = validatestring(interface,validInterfaces);
+            
             obj.info = imaqhwinfo(obj.interface);
             obj.numCamerasFound = numel(obj.info.DeviceIDs);
             
@@ -58,22 +62,47 @@ classdef videoJaiAq < handle    % attributed a handle superclass
                error('No cameras connected.')   % TODO fix this
             end
             
-            if  nargin == 0
-                obj.deviceNumber = 1;
-                obj.bitDepth = 'Mono8';
-            elseif nargin == 2
-                if devicenumber <= obj.numCamerasFound
-                    obj.deviceNumber = devicenumber;
+            % load a GenICam
+            if strcmp(interface,'gentl') == 1
+                
+                if  nargin == 0
+                    obj.deviceNumber = 1;
+                    obj.bitDepth = 'Mono8';
+                elseif nargin == 2 || nargin == 3
+                    if devicenumber <= obj.numCamerasFound
+                        obj.deviceNumber = devicenumber;
+                    else
+                        error('Camera ID not found')
+                    end
+                    validBitDepths = ["Mono8","Mono10","Mono12"];
+                    obj.bitDepth = validatestring(settings,validBitDepths);
                 else
-                    error('Camera ID not found')
+                    error('Wrong number of input arguments')
                 end
-                validBitDepths = ["Mono8","Mono10","Mono12"];
-                obj.bitDepth = validatestring(bitdepth,validBitDepths);
-            else
-                error('Wrong number of input arguments')
+                obj.previewStatus = 0;
+                obj.advancedPreviewStatus = 0;
+                
+                % load a webCam
+            elseif strcmp(interface,'winvideo')
+                if  nargin == 0 % no device number specified
+                    obj.deviceNumber = 1; % default input first camera if present
+                    obj.bitDepth = 'MJPG_1280x720'; % default bitDepth
+                elseif nargin == 2 || nargin == 3 % if device number specified
+                    if devicenumber <= obj.numCamerasFound % check whether device number exists
+                        obj.deviceNumber = devicenumber; 
+                    else
+                        error('Camera ID not found')   % if not, output error
+                    end
+                    
+                    % check string array for valid bitdepths
+                    validBitDepths = ["MJPG_1280x720","MJPG_848x480","MJPG_960x540"];
+                    obj.bitDepth = validatestring(settings,validBitDepths);
+                else
+                    error('Wrong number of input arguments')
+                end
+                obj.previewStatus = 0;
+                obj.advancedPreviewStatus = 0;
             end
-            obj.previewStatus = 0;
-            obj.advancedPreviewStatus = 0;
             
             % check if outputs folder exists and if it does not make it
             if exist([cd, '/outputs'],'file') == 0
@@ -96,8 +125,14 @@ classdef videoJaiAq < handle    % attributed a handle superclass
             obj.camera.vid = videoinput(obj.interface, obj.deviceNumber, obj.bitDepth);
             obj.camera.src = getselectedsource(obj.camera.vid);
             
-            % impose default timed exposure mode
-            obj.camera.src.ExposureMode = 'Timed';
+            % impose default settings for the camera mode so that they are
+            % in manual mode
+            if strcmp(interface,'gentl')
+                obj.camera.src.ExposureMode = 'Timed';
+            elseif strcmp(interface,'winvideo')
+                obj.camera.src.ExposureMode = 'manual';
+                obj.camera.src.WhiteBalanceMode = 'manual';
+            end
             
             % set up figure object
             set(0,'DefaultFigureWindowStyle','docked')
@@ -106,25 +141,6 @@ classdef videoJaiAq < handle    % attributed a handle superclass
             fprintf('Camera %s loaded.\n', obj.info.DeviceInfo(devicenumber).DeviceName);
         end
         
-        % setting methods
-        function camBasicSettings(obj)
-            % Use camBasicSettings to open a dialog box for the most-used camera
-            % settings
-            prompt = {'Number of frames:','Acquisition fps:','Exposure fps:', 'Digital Gain:'};
-            dlgtitle = ['Camera settings for ', obj.info.DeviceInfo.DeviceName];
-            dims = [1 100];
-           definput = {num2str(obj.camera.vid.FramesPerTrigger) ,num2str(obj.camera.src.AcquisitionFrameRate),num2str(10^6/obj.camera.src.ExposureTime),num2str(obj.camera.src.Gain)};
-           answer = inputdlg(prompt,dlgtitle,dims,definput);
-            
-            obj.camera.vid.FramesPerTrigger = eval(answer{1});
-            obj.camera.src.AcquisitionFrameRate = eval(answer{2});
-            if eval(answer{3}) == eval(answer{2}) && obj.previewStatus == 0 %% % TODO figure out how to check whether preview is on
-                obj.camera.src.ExposureMode = 'Off';
-            else
-                obj.camera.src.ExposureTime = min(10^6/eval(answer{3}) , 10^6/eval(answer{2}));    % n.b. camera input is in micro seconds
-            end
-            obj.camera.src.Gain = eval(answer{4});
-        end
         
         function camSettings(obj,action,filename)
             % the camSettings function opens a dialog box for choosing camera
@@ -132,22 +148,44 @@ classdef videoJaiAq < handle    % attributed a handle superclass
             % settings in the cameraSettings folder. NOTE: the 'save' and
             % 'load' functionalities still not working.
             
-            if nargin == 1
-                % opens up larger settings dialog box
-                prompt = {'Number of frames:','Acquisition fps:','Exposure fps:', 'Digital Gain:'};
-                dlgtitle = ['Camera settings for ', obj.info.DeviceInfo.DeviceName];
-                dims = [1 100];
-                definput = {num2str(obj.camera.vid.FramesPerTrigger) ,num2str(obj.camera.src.AcquisitionFrameRate),num2str(10^6/obj.camera.src.ExposureTime),num2str(obj.camera.src.Gain)};
-                answer = inputdlg(prompt,dlgtitle,dims,definput);
-                
-                obj.camera.vid.FramesPerTrigger = eval(answer{1});
-                obj.camera.src.AcquisitionFrameRate = eval(answer{2});
-                if eval(answer{3}) == eval(answer{2}) && obj.previewStatus == 0 %% % TODO figure out how to check whether preview is on
-                    obj.camera.src.ExposureMode = 'Off';
-                else
-                    obj.camera.src.ExposureTime = min(10^6/eval(answer{3}) , 10^6/eval(answer{2}));    % n.b. camera input is in micro seconds
+            % settings for the GenICam
+            if strcmp(obj.interface,'gentl') == 1
+                if nargin == 1
+                    % opens up larger settings dialog box
+                    prompt = {'Number of frames:','Acquisition fps:','Exposure fps:', 'Digital Gain:'};
+                    dlgtitle = ['Camera settings for ', obj.info.DeviceInfo.DeviceName];
+                    dims = [1 100];
+                    definput = {num2str(obj.camera.vid.FramesPerTrigger) ,num2str(obj.camera.src.AcquisitionFrameRate),num2str(10^6/obj.camera.src.ExposureTime),num2str(obj.camera.src.Gain)};
+                    answer = inputdlg(prompt,dlgtitle,dims,definput);
+                    
+                    obj.camera.vid.FramesPerTrigger = eval(answer{1});
+                    obj.camera.src.AcquisitionFrameRate = eval(answer{2});
+                    if eval(answer{3}) == eval(answer{2}) && obj.previewStatus == 0 %% % TODO figure out how to check whether preview is on
+                        obj.camera.src.ExposureMode = 'Off';
+                    else
+                        obj.camera.src.ExposureTime = min(10^6/eval(answer{3}) , 10^6/eval(answer{2}));    % n.b. camera input is in micro seconds
+                    end
+                    obj.camera.src.Gain = eval(answer{4});
                 end
-                obj.camera.src.Gain = eval(answer{4});
+                
+                % settings for the webCam
+            elseif strcmp(obj.interface,'winvideo') == 1
+                 if nargin == 1  % not saving or loading
+                    % opens up larger settings dialog box
+                    prompt = {'Digital Gain:','Gamma','Brightness','White Balance','Exposure'};
+                    dlgtitle = ['Camera settings for ', obj.info.DeviceInfo.DeviceName];
+                    dims = [1 100];
+                    definput = {num2str(obj.camera.src.Gain), num2str(obj.camera.src.Gamma),num2str(obj.camera.src.Brightness),num2str(obj.camera.src.WhiteBalance),num2str(obj.camera.src.Exposure)};
+                    answer = inputdlg(prompt,dlgtitle,dims,definput);
+                    
+                    obj.camera.src.Gain = eval(answer{1});
+                    obj.camera.src.Gamma = eval(answer{2});
+                    obj.camera.src.Brightness = eval(answer{3});
+                    obj.camera.src.WhiteBalance = eval(answer{4});
+                    obj.camera.src.Exposure = eval(answer{5});
+                    
+  
+                end
             end
             
             if nargin == 2 || nargin == 3

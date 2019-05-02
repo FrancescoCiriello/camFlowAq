@@ -912,10 +912,19 @@ classdef videoJaiAq < handle    % attributed a handle superclass
                     
                     % save as raw
                     if nargin < 5
-                        diskLogger = VideoWriter(['outputs/' expName '/raw'], 'Grayscale AVI');
+                        % monochrome videos
+                        if strcmp(obj.interface,'gentl')
+                            diskLogger = VideoWriter(['outputs/' expName '/raw'], 'Grayscale AVI');
+                            fps = obj.camera.src.AcquisitionFrameRate;
+                        % color videos
+                        elseif strcmp(obj.interface,'winvideo')  
+                            diskLogger = VideoWriter(['outputs/' expName '/raw'], 'Uncompressed AVI');
+                            fps = eval(obj.camera.src.FrameRate);
+                        end
                         obj.camera.vid.LoggingMode = 'disk';
                         obj.camera.vid.DiskLogger = diskLogger;
-                        diskLogger.FrameRate =  obj.camera.src.AcquisitionFrameRate;
+                        
+                        diskLogger.FrameRate =  fps;
                         fprintf('\nCreating movie ''raw.avi'' in %s folder.\n', expName)
                     end
                     
@@ -969,10 +978,19 @@ classdef videoJaiAq < handle    % attributed a handle superclass
                     % use given moviename
                     if nargin >= 5
                         % save to disk
-                        diskLogger = VideoWriter(['outputs/' expName, '/' moviename], 'Grayscale AVI');
+                        
+                        % monochrome
+                        if strcmp(obj.interface,'gentl')
+                            diskLogger = VideoWriter(['outputs/' expName, '/' moviename], 'Grayscale AVI');
+                             fps = obj.camera.src.AcquisitionFrameRate;
+                        % coloured
+                        elseif strcmp(obj.interface,'winvideo')
+                            diskLogger = VideoWriter(['outputs/' expName, '/' moviename], 'Uncompressed AVI');
+                             fps = eval(obj.camera.src.FrameRate);
+                        end
                         obj.camera.vid.LoggingMode = 'disk';
                         obj.camera.vid.DiskLogger = diskLogger;
-                        diskLogger.FrameRate =  obj.camera.src.AcquisitionFrameRate;
+                        diskLogger.FrameRate =  fps;
                         fprintf('\nCreating movie ''%s'' in %s folder.\n', moviename, expName)
                     end
                     

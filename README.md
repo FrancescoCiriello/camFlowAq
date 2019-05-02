@@ -7,12 +7,12 @@ The camFlowAq.m is a class file that you can add to your MATLAB userpath.
 
 Start by loading a camera in a new project folder by running:
 
-cam = camFlowAq('gentl',1,'Mono8')
+cam = camFlowAq('gentl') 
 
-Tested with JAI Spark 5000-M USB and Matlab 2019a. 
+Tested with JAI Spark 5000-M USB / Integrated Webcams and Matlab 2018b-2019a. 
 
 The cheat sheet summarises the methods available for the class.
 
-The jaiAq.mlx is a live script with further instructions. You can find installation help for using the JAI cameras in MATLAB here.
+The camFlowAq-README.mlx is a live script with further instructions. You can find installation help for using the JAI cameras in MATLAB here.
 
 Currently under development.

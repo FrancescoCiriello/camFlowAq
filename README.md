@@ -1,11 +1,13 @@
-# videoJaiAq
-A MATLAB video acquisition toolbox for monochrome scientific GenICam cameras.
+# camFlowAq
+A MATLAB video acquisition toolbox originally developed for monochrome scientific GenICam cameras.
 
-The videoJaiAq.m is a class file that you can add to your MATLAB userpath.
+Now works with webcams!
+
+The camFlowAq.m is a class file that you can add to your MATLAB userpath.
 
 Start by loading a camera in a new project folder by running:
 
-cam = videoJaiAq('gentl',1,'Mono8')
+cam = camFlowAq('gentl',1,'Mono8')
 
 Tested with JAI Spark 5000-M USB and Matlab 2019a. 
 
